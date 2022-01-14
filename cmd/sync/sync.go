@@ -1,29 +1,30 @@
 package sync
 
 import (
-	"context"
+    "context"
 
-	"github.com/rclone/rclone/cmd"
-	"github.com/rclone/rclone/fs/config/flags"
-	"github.com/rclone/rclone/fs/operations"
-	"github.com/rclone/rclone/fs/sync"
-	"github.com/spf13/cobra"
+    "github.com/rclone/rclone/cmd"
+    "github.com/rclone/rclone/fs/config/flags"
+    "github.com/rclone/rclone/fs/operations"
+    "github.com/rclone/rclone/fs/sync"
+    "github.com/spf13/cobra"
 )
 
 var (
-	createEmptySrcDirs = false
+    createEmptySrcDirs = false
 )
 
 func init() {
-	cmd.Root.AddCommand(commandDefinition)
-	cmdFlags := commandDefinition.Flags()
-	flags.BoolVarP(cmdFlags, &createEmptySrcDirs, "create-empty-src-dirs", "", createEmptySrcDirs, "Create empty source dirs on destination after sync")
+    print(123) // TODO 123 for testing
+    cmd.Root.AddCommand(commandDefinition)
+    cmdFlags := commandDefinition.Flags()
+    flags.BoolVarP(cmdFlags, &createEmptySrcDirs, "create-empty-src-dirs", "", createEmptySrcDirs, "Create empty source dirs on destination after sync")
 }
 
 var commandDefinition = &cobra.Command{
-	Use:   "sync source:path dest:path",
-	Short: `Make source and dest identical, modifying destination only.`,
-	Long: `
+    Use:   "sync source:path dest:path",
+    Short: `Make source and dest identical, modifying destination only.`,
+    Long: `
 Sync the source to the destination, changing the destination
 only.  Doesn't transfer files that are identical on source and
 destination, testing by size and modification time or MD5SUM.
@@ -52,14 +53,14 @@ go there.
 **Note**: Use the ` + "`rclone dedupe`" + ` command to deal with "Duplicate object/directory found in source/destination - ignoring" errors.
 See [this forum post](https://forum.rclone.org/t/sync-not-clearing-duplicates/14372) for more info.
 `,
-	Run: func(command *cobra.Command, args []string) {
-		cmd.CheckArgs(2, 2, command, args)
-		fsrc, srcFileName, fdst := cmd.NewFsSrcFileDst(args)
-		cmd.Run(true, true, command, func() error {
-			if srcFileName == "" {
-				return sync.Sync(context.Background(), fdst, fsrc, createEmptySrcDirs)
-			}
-			return operations.CopyFile(context.Background(), fdst, fsrc, srcFileName, srcFileName)
-		})
-	},
+    Run: func(command *cobra.Command, args []string) {
+        cmd.CheckArgs(2, 2, command, args)
+        fsrc, srcFileName, fdst := cmd.NewFsSrcFileDst(args)
+        cmd.Run(true, true, command, func() error {
+            if srcFileName == "" {
+                return sync.Sync(context.Background(), fdst, fsrc, createEmptySrcDirs)
+            }
+            return operations.CopyFile(context.Background(), fdst, fsrc, srcFileName, srcFileName)
+        })
+    },
 }
