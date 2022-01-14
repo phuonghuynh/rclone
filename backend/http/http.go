@@ -6,6 +6,8 @@ package http
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -16,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
@@ -38,25 +39,18 @@ func init() {
 		NewFs:       NewFs,
 		Options: []fs.Option{{
 			Name:     "url",
-			Help:     "URL of http host to connect to",
+			Help:     "URL of http host to connect to.\n\nE.g. \"https://example.com\", or \"https://user:pass@example.com\" to use a username and password.",
 			Required: true,
-			Examples: []fs.OptionExample{{
-				Value: "https://example.com",
-				Help:  "Connect to example.com",
-			}, {
-				Value: "https://user:pass@example.com",
-				Help:  "Connect to example.com using a username and password",
-			}},
 		}, {
 			Name: "headers",
-			Help: `Set HTTP headers for all transactions
+			Help: `Set HTTP headers for all transactions.
 
-Use this to set additional HTTP headers for all transactions
+Use this to set additional HTTP headers for all transactions.
 
 The input format is comma separated list of key,value pairs.  Standard
 [CSV encoding](https://godoc.org/encoding/csv) may be used.
 
-For example to set a Cookie use 'Cookie,name=value', or '"Cookie","name=value"'.
+For example, to set a Cookie use 'Cookie,name=value', or '"Cookie","name=value"'.
 
 You can set multiple headers, e.g. '"Cookie","name=value","Authorization","xxx"'.
 `,
@@ -64,7 +58,7 @@ You can set multiple headers, e.g. '"Cookie","name=value","Authorization","xxx"'
 			Advanced: true,
 		}, {
 			Name: "no_slash",
-			Help: `Set this if the site doesn't end directories with /
+			Help: `Set this if the site doesn't end directories with /.
 
 Use this if your target website does not use / on the end of
 directories.
@@ -80,7 +74,7 @@ directories.`,
 			Advanced: true,
 		}, {
 			Name: "no_head",
-			Help: `Don't use HEAD requests to find file sizes in dir listing
+			Help: `Don't use HEAD requests to find file sizes in dir listing.
 
 If your site is being very slow to load then you can try this option.
 Normally rclone does a HEAD request for each potential file in a
@@ -139,7 +133,7 @@ func statusError(res *http.Response, err error) error {
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		_ = res.Body.Close()
-		return errors.Errorf("HTTP Error %d: %s", res.StatusCode, res.Status)
+		return fmt.Errorf("HTTP Error %d: %s", res.StatusCode, res.Status)
 	}
 	return nil
 }
@@ -384,15 +378,15 @@ func (f *Fs) readDir(ctx context.Context, dir string) (names []string, err error
 	URL := f.url(dir)
 	u, err := url.Parse(URL)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to readDir")
+		return nil, fmt.Errorf("failed to readDir: %w", err)
 	}
 	if !strings.HasSuffix(URL, "/") {
-		return nil, errors.Errorf("internal error: readDir URL %q didn't end in /", URL)
+		return nil, fmt.Errorf("internal error: readDir URL %q didn't end in /", URL)
 	}
 	// Do the request
 	req, err := http.NewRequestWithContext(ctx, "GET", URL, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "readDir failed")
+		return nil, fmt.Errorf("readDir failed: %w", err)
 	}
 	f.addHeaders(req)
 	res, err := f.httpClient.Do(req)
@@ -404,7 +398,7 @@ func (f *Fs) readDir(ctx context.Context, dir string) (names []string, err error
 	}
 	err = statusError(res, err)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to readDir")
+		return nil, fmt.Errorf("failed to readDir: %w", err)
 	}
 
 	contentType := strings.SplitN(res.Header.Get("Content-Type"), ";", 2)[0]
@@ -412,10 +406,10 @@ func (f *Fs) readDir(ctx context.Context, dir string) (names []string, err error
 	case "text/html":
 		names, err = parse(u, res.Body)
 		if err != nil {
-			return nil, errors.Wrap(err, "readDir")
+			return nil, fmt.Errorf("readDir: %w", err)
 		}
 	default:
-		return nil, errors.Errorf("Can't parse content type %q", contentType)
+		return nil, fmt.Errorf("Can't parse content type %q", contentType)
 	}
 	return names, nil
 }
@@ -435,7 +429,7 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 	}
 	names, err := f.readDir(ctx, dir)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error listing %q", dir)
+		return nil, fmt.Errorf("error listing %q: %w", dir, err)
 	}
 	var (
 		entriesMu sync.Mutex // to protect entries
@@ -547,7 +541,7 @@ func (o *Object) stat(ctx context.Context) error {
 	url := o.url()
 	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
 	if err != nil {
-		return errors.Wrap(err, "stat failed")
+		return fmt.Errorf("stat failed: %w", err)
 	}
 	o.fs.addHeaders(req)
 	res, err := o.fs.httpClient.Do(req)
@@ -556,7 +550,7 @@ func (o *Object) stat(ctx context.Context) error {
 	}
 	err = statusError(res, err)
 	if err != nil {
-		return errors.Wrap(err, "failed to stat")
+		return fmt.Errorf("failed to stat: %w", err)
 	}
 	t, err := http.ParseTime(res.Header.Get("Last-Modified"))
 	if err != nil {
@@ -569,7 +563,7 @@ func (o *Object) stat(ctx context.Context) error {
 	if o.fs.opt.NoSlash {
 		mediaType, _, err := mime.ParseMediaType(o.contentType)
 		if err != nil {
-			return errors.Wrapf(err, "failed to parse Content-Type: %q", o.contentType)
+			return fmt.Errorf("failed to parse Content-Type: %q: %w", o.contentType, err)
 		}
 		if mediaType == "text/html" {
 			return fs.ErrorNotAFile
@@ -595,7 +589,7 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 	url := o.url()
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "Open failed")
+		return nil, fmt.Errorf("Open failed: %w", err)
 	}
 
 	// Add optional headers
@@ -608,7 +602,7 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 	res, err := o.fs.httpClient.Do(req)
 	err = statusError(res, err)
 	if err != nil {
-		return nil, errors.Wrap(err, "Open failed")
+		return nil, fmt.Errorf("Open failed: %w", err)
 	}
 	return res.Body, nil
 }

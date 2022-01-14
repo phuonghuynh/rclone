@@ -107,28 +107,29 @@ At the end of the non interactive process, rclone will return a result
 with `State` as empty string.
 
 If `--all` is passed then rclone will ask all the config questions,
-not just the post config questions. Any parameters are used as
-defaults for questions as usual.
+not just the post config questions. Parameters that are supplied on
+the command line or from environment variables are used as defaults
+for questions as usual.
 
 Note that `bin/config.py` in the rclone source implements this protocol
 as a readable demonstration.
 
 
 ```
-rclone config create `name` `type` [`key` `value`]* [flags]
+rclone config create name type [key value]* [flags]
 ```
 
 ## Options
 
 ```
-      --all               Ask the full set of config questions.
-      --continue          Continue the configuration process with an answer.
+      --all               Ask the full set of config questions
+      --continue          Continue the configuration process with an answer
   -h, --help              help for create
-      --no-obscure        Force any passwords not to be obscured.
-      --non-interactive   Don't interact with user and return questions.
-      --obscure           Force any passwords to be obscured.
-      --result string     Result - use with --continue.
-      --state string      State - use with --continue.
+      --no-obscure        Force any passwords not to be obscured
+      --non-interactive   Don't interact with user and return questions
+      --obscure           Force any passwords to be obscured
+      --result string     Result - use with --continue
+      --state string      State - use with --continue
 ```
 
 See the [global flags page](/flags/) for global options not listed here.

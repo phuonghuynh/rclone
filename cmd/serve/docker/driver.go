@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -13,12 +14,12 @@ import (
 	"time"
 
 	sysdnotify "github.com/iguanesolutions/go-systemd/v5/notify"
-	"github.com/pkg/errors"
 
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/lib/atexit"
+	"github.com/rclone/rclone/lib/file"
 	"github.com/rclone/rclone/vfs/vfscommon"
 	"github.com/rclone/rclone/vfs/vfsflags"
 )
@@ -40,18 +41,15 @@ type Driver struct {
 // NewDriver makes a new docker driver
 func NewDriver(ctx context.Context, root string, mntOpt *mountlib.Options, vfsOpt *vfscommon.Options, dummy, forgetState bool) (*Driver, error) {
 	// setup directories
-	cacheDir, err := filepath.Abs(config.CacheDir)
+	cacheDir := config.GetCacheDir()
+	err := file.MkdirAll(cacheDir, 0700)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to make --cache-dir absolute")
-	}
-	err = os.MkdirAll(cacheDir, 0700)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create cache directory: %s", cacheDir)
+		return nil, fmt.Errorf("failed to create cache directory: %s: %w", cacheDir, err)
 	}
 
-	//err = os.MkdirAll(root, 0755)
+	//err = file.MkdirAll(root, 0755)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create mount root: %s", root)
+		return nil, fmt.Errorf("failed to create mount root: %s: %w", root, err)
 	}
 
 	// setup driver state
@@ -74,7 +72,7 @@ func NewDriver(ctx context.Context, root string, mntOpt *mountlib.Options, vfsOp
 	// restore from saved state
 	if !forgetState {
 		if err = drv.restoreState(ctx); err != nil {
-			return nil, errors.Wrap(err, "failed to restore state")
+			return nil, fmt.Errorf("failed to restore state: %w", err)
 		}
 	}
 
@@ -91,7 +89,7 @@ func NewDriver(ctx context.Context, root string, mntOpt *mountlib.Options, vfsOp
 
 	// notify systemd
 	if err := sysdnotify.Ready(); err != nil {
-		return nil, errors.Wrap(err, "failed to notify systemd")
+		return nil, fmt.Errorf("failed to notify systemd: %w", err)
 	}
 
 	return drv, nil
@@ -325,7 +323,7 @@ func (drv *Driver) saveState() error {
 
 	data, err := json.Marshal(state)
 	if err != nil {
-		return errors.Wrap(err, "failed to marshal state")
+		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
 	ctx := context.Background()
@@ -337,7 +335,7 @@ func (drv *Driver) saveState() error {
 		}
 		time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 	}
-	return errors.Wrap(err, "failed to save state")
+	return fmt.Errorf("failed to save state: %w", err)
 }
 
 // restoreState recreates volumes from saved driver state

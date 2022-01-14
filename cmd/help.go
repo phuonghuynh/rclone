@@ -165,7 +165,7 @@ func runRoot(cmd *cobra.Command, args []string) {
 // setupRootCommand sets default usage, help, and error handling for
 // the root command.
 //
-// Helpful example: http://rtfcode.com/xref/moby-17.03.2-ce/cli/cobra.go
+// Helpful example: https://github.com/moby/moby/blob/master/cli/cobra.go
 func setupRootCommand(rootCmd *cobra.Command) {
 	ci := fs.GetConfig(context.Background())
 	// Add global flags
@@ -315,7 +315,7 @@ func showBackend(name string) {
 			optionsType = "advanced"
 			continue
 		}
-		fmt.Printf("### %s Options\n\n", strings.Title(optionsType))
+		fmt.Printf("### %s options\n\n", strings.Title(optionsType))
 		fmt.Printf("Here are the %s options specific to %s (%s).\n\n", optionsType, backend.Name, backend.Description)
 		optionsType = "advanced"
 		for _, opt := range opts {
